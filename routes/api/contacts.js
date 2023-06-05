@@ -2,12 +2,13 @@ const express = require("express");
 const router = express.Router();
 
 const {
+  addContact,
   listContacts,
   getContactById,
   removeContact,
-  addContact,
   updateContact,
 } = require("../../models/contacts.js");
+
 
 const validate = require("../../common/validator.js");
 
@@ -36,7 +37,7 @@ router.get("/:contactId", async (req, res, next) => {
 });
 
 router.post("/", validate.contactValid, async (req, res, next) => {
-  const { name, email, phone } = req.body;
+  // const { name, email, phone } = req.body;
   const newContact = await addContact(req.body);
   res.json({ status: "success", code: 201, data: { newContact } });
 });
@@ -74,4 +75,4 @@ router.delete("/:contactId", async (req, res, next) => {
   } 
 });
 
-module.exports = router;
+module.exports = router
