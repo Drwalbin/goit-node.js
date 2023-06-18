@@ -37,6 +37,20 @@ const contactValidationStatus = Joi.object({
   favorite: Joi.boolean().required(),
 });
 
+const findByEmail = Joi.object({
+  email: Joi.string()
+    .email({
+      minDomainSegments: 2,
+      tlds: { allow: ["com", "net", "pl"] },
+    })
+    .required(),
+  password: Joi.string().required(),
+});
+
+const subscription = Joi.object({
+  subscription: Joi.string().valid("starter", "pro", "business").required(),
+});
+
 const validate = (schema, obj, next, res) => {
   const { error } = schema.validate(obj);
   if (error) {
@@ -51,14 +65,17 @@ const validate = (schema, obj, next, res) => {
   next();
 };
 
-module.exports.createContact = (req, res, next) => {
-  return validate(contactValidation, req.body, next, res);
-};
+module.exports.createContact = (req, res, next) =>
+  validate(contactValidation, req.body, next, res);
 
-module.exports.updateContact = (req, res, next) => {
-  return validate(contactValidationUpdate, req.body, next, res);
-};
+module.exports.updateContact = (req, res, next) =>
+  validate(contactValidationUpdate, req.body, next, res);
 
-module.exports.updateStatus = (req, res, next) => {
-  return validate(contactValidationStatus, req.body, next, res);
-};
+module.exports.updateStatus = (req, res, next) =>
+  validate(contactValidationStatus, req.body, next, res);
+
+module.exports.findUserByEmail = (req, res, next) =>
+  validate(findByEmail, req.body, next, res);
+
+module.exports.updateSubscription = (req, res, next) =>
+  validate(subscription, req.body, next, res);
