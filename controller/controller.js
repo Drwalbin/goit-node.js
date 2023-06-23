@@ -1,15 +1,18 @@
 const service = require("../service/service.js");
+// const paginatedResults = require("../common/pagination.js");
 
 const get = async (req, res, next) => {
   try {
-    const results = await service.getAllContacts();
-    res.json({
-      status: "success",
-      code: 200,
-      data: {
-        contacts: results,
-      },
-    });
+    let results = await service.getAllContacts();
+    const { favorite, page, limit } = req.query;
+
+    if (favorite === "true" || favorite === "false") {
+      results = await service.getAllContacts({ favorite: favorite });
+    }
+    if (page && limit) {
+      results = await res.paginatedResults;
+    }
+    res.status(200).json(results);
   } catch (e) {
     console.error(e);
     next(e);
