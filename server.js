@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const app = require("./app");
+const { createFolderIsNotExist } = require("./config/createFolders");
+const { AVATAR_DIRECTORY, UPLOAD_DIRECTORY } = require("./config/upload");
 
 require("dotenv").config();
 
@@ -13,7 +15,9 @@ const connection = mongoose.connect(uriDb, {
 
 connection
   .then(() => {
-    app.listen(PORT, function () {
+    app.listen(PORT, async () => {
+      await createFolderIsNotExist(UPLOAD_DIRECTORY);
+      await createFolderIsNotExist(AVATAR_DIRECTORY);
       console.log(`Server running. Use our API on port: ${PORT}`);
       console.log("Database connection successful");
     });
