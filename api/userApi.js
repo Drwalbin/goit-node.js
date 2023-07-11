@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const validate = require("../common/validator.js");
 const ctrlUser = require("../controller/userController.js");
-const auth = require("../config/authMiddleware");
+const auth = require("../config/authMiddleware.js");
 const { upload } = require("../config/upload");
 
 router.post("/signup", validate.findUserByEmail, ctrlUser.signUp);
