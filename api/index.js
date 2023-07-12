@@ -2,8 +2,8 @@ const express = require("express");
 const router = express.Router();
 const validate = require("../common/validator.js");
 const ctrlContact = require("../controller/controller.js");
-const auth = require("../config/authMiddleware.js");
-const Contact = require("../service/schemas/contact.js");
+const auth = require("../config/authMiddleware");
+const Contact = require("../service/schemas/contact");
 const paginatedResults = require("../common/pagination.js");
 
 router.get("/", auth, paginatedResults(Contact), ctrlContact.get);

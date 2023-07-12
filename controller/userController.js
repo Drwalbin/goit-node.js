@@ -74,10 +74,14 @@ const signUp = async (req, res, next) => {
 
     sendVerificationEmail(newUser.email, newUser.verificationToken);
 
-
+    // Generate JWT token
     const token = jwt.sign({ id: newUser._id, email }, secret, {
       expiresIn: "3h",
     });
+
+    // Przypisanie wygenerowanego tokena do użytkownika
+    newUser.token = token;
+    await newUser.save();
 
     res.status(201).json({
       message: "Registration successful",
@@ -93,8 +97,6 @@ const signUp = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 const verifyEmail = async (req, res, next) => {
   const { verificationToken } = req.params;
@@ -169,7 +171,7 @@ const login = async (req, res, next) => {
 
     const { id, subscription } = user;
 
-   
+    // Generate JWT token
     const token = jwt.sign({ id, email }, secret, { expiresIn: "3h" });
 
     await service.addToken(id, token);
