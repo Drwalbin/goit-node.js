@@ -5,7 +5,6 @@ const service = require("../service/users.js");
 const User = require("../service/schemas/user.js");
 const { AVATAR_DIRECTORY } = require("../config/upload.js");
 
-
 const jwt = require("jsonwebtoken");
 const gravatar = require("gravatar");
 const Jimp = require("jimp");
@@ -13,21 +12,60 @@ const Jimp = require("jimp");
 require("dotenv").config();
 const secret = process.env.JWT_SECRET;
 
+const nodemailer = require("nodemailer");
+
+const transporter = nodemailer.createTransport({
+  host: process.env.MAIL_HOST,
+  port: process.env.MAIL_PORT,
+  auth: {
+    user: process.env.MAIL_USERNAME,
+    pass: process.env.MAIL_PASSWORD,
+  },
+});
+
+const sendVerificationEmail = (email, verificationToken) => {
+  const mailOptions = {
+    from: process.env.MAIL_FROM,
+    to: email,
+    subject: "Weryfikacja adresu email",
+    html: `<p>Kliknij poniższy link, aby zweryfikować swój adres email:</p>
+           <a href="${process.env.APP_URL}/users/verify/${verificationToken}">${process.env.APP_URL}/users/verify/${verificationToken}</a>`,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.log("Błąd wysyłania emaila:", error);
+    } else {
+      console.log("Email wysłany:", info.response);
+    }
+  });
+};
+
 const signUp = async (req, res, next) => {
-  const { email, password } = req.body;
-  const user = await service.findUserByEmail(email);
-
-  if (user) return res.status(409).json({ message: "Email in use" });
-
   try {
+    const { email, password } = req.body;
+
+    const user = await service.findUserByEmail(email);
+    if (user) {
+      return res.status(409).json({ message: "Email in use" });
+    }
+
     const avatarURL = gravatar.url(email, {
-      s: "200", 
-      r: "pg", 
-      d: "mm", 
+      s: "200",
+      r: "pg",
+      d: "mm",
     });
-    const newUser = new User({ email, avatarURL });
+
+    const newUser = new User({
+      email,
+      avatarURL,
+      verificationToken: "generated_token",
+    });
     newUser.setPassword(password);
     await newUser.save();
+
+    sendVerificationEmail(newUser.email, newUser.verificationToken);
+
     return res.status(201).json({
       message: "Registration successful",
       user: {
@@ -37,8 +75,69 @@ const signUp = async (req, res, next) => {
       },
     });
   } catch (e) {
-    console.error(e);
+    console.error("Registration error:", e);
     next(e);
+  }
+};
+
+const verifyEmail = async (req, res, next) => {
+  const { verificationToken } = req.params;
+
+  try {
+    const user = await User.findOne({ verificationToken });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.verificationToken = null;
+    user.verify = true;
+    await user.save();
+
+    return res.status(200).json({ message: "Verification successful" });
+  } catch (e) {
+    console.error("Email verification error:", e);
+    return res
+      .status(500)
+      .json({ message: "An error occurred during email verification" });
+  }
+};
+
+const resendVerificationEmail = async (req, res, next) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Missing required field: email" });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.verify) {
+      return res
+        .status(400)
+        .json({ message: "Verification has already been passed" });
+    }
+
+    const newVerificationToken = "generated_new_token";
+
+    user.verificationToken = newVerificationToken;
+    await user.save();
+
+    sendVerificationEmail(user.email, newVerificationToken);
+
+    return res.status(200).json({ message: "Verification email sent" });
+  } catch (e) {
+    console.error("Error sending verification email:", e);
+    return res
+      .status(500)
+      .json({
+        message: "An error occurred while sending the verification email",
+      });
   }
 };
 
@@ -122,7 +221,7 @@ const avatarUpdate = async (req, res, next) => {
     .then((avatar) => {
       return avatar
         .resize(250, 250) // resize
-        .write(AVATAR_DIRECTORY); // save
+        .write(avatarURL); // save
     })
     .catch((err) => {
       console.error(err);
@@ -130,7 +229,7 @@ const avatarUpdate = async (req, res, next) => {
 
   try {
     await fs.rename(temporaryName, avatarURL);
-    await service.updateAvatar();
+    await service.updateAvatar(req.user.id, avatarURL);
   } catch (e) {
     await fs.unlink(temporaryName);
     next(e);
@@ -140,6 +239,8 @@ const avatarUpdate = async (req, res, next) => {
 
 module.exports = {
   signUp,
+  verifyEmail,
+  resendVerificationEmail,
   login,
   logout,
   currentUser,

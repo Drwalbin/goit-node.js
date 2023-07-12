@@ -1,5 +1,6 @@
 const service = require("../service/service.js");
 const paginatedResults = require("../common/pagination.js");
+const sendMail = require("../controller/userController.js");
 
 const get = async (req, res, next) => {
   try {
@@ -47,6 +48,12 @@ const addContact = async (req, res, next) => {
   try {
     const result = await service.createContact(req.body);
     if (result) {
+      
+      const { name, email } = result;
+      const subject = "Nowy kontakt dodany";
+      const text = `Dodano nowy kontakt o nazwie ${name} i adresie email ${email}.`;
+      sendMail(process.env.NOTIFICATION_EMAIL, subject, text);
+
       res.json({
         status: "success",
         code: 201,
@@ -63,6 +70,7 @@ const addContact = async (req, res, next) => {
     next(e);
   }
 };
+
 
 const updateContact = async (req, res, next) => {
   const { contactId } = req.params;
