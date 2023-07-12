@@ -9,10 +9,11 @@ const jwt = require("jsonwebtoken");
 const gravatar = require("gravatar");
 const Jimp = require("jimp");
 
+const { v4: uuidv4 } = require("uuid");
+const nodemailer = require("nodemailer");
+
 require("dotenv").config();
 const secret = process.env.JWT_SECRET;
-
-const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
   host: process.env.MAIL_HOST,
@@ -23,20 +24,24 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const generateVerificationToken = () => {
+  return uuidv4();
+};
+
 const sendVerificationEmail = (email, verificationToken) => {
   const mailOptions = {
     from: process.env.MAIL_FROM,
     to: email,
-    subject: "Weryfikacja adresu email",
-    html: `<p>Kliknij poniższy link, aby zweryfikować swój adres email:</p>
+    subject: "Email Verification",
+    html: `<p>Click the following link to verify your email:</p>
            <a href="${process.env.APP_URL}/users/verify/${verificationToken}">${process.env.APP_URL}/users/verify/${verificationToken}</a>`,
   };
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      console.log("Błąd wysyłania emaila:", error);
+      console.log("Email sending error:", error);
     } else {
-      console.log("Email wysłany:", info.response);
+      console.log("Email sent:", info.response);
     }
   });
 };
@@ -56,29 +61,40 @@ const signUp = async (req, res, next) => {
       d: "mm",
     });
 
+    const verificationToken = generateVerificationToken();
+
     const newUser = new User({
       email,
       avatarURL,
-      verificationToken: "generated_token",
+      verify: false,
+      verificationToken,
     });
     newUser.setPassword(password);
     await newUser.save();
 
     sendVerificationEmail(newUser.email, newUser.verificationToken);
 
-    return res.status(201).json({
+
+    const token = jwt.sign({ id: newUser._id, email }, secret, {
+      expiresIn: "3h",
+    });
+
+    res.status(201).json({
       message: "Registration successful",
+      token,
       user: {
         email: newUser.email,
         subscription: newUser.subscription,
         avatarURL,
       },
     });
-  } catch (e) {
-    console.error("Registration error:", e);
-    next(e);
+  } catch (error) {
+    console.error("Registration error:", error);
+    next(error);
   }
 };
+
+
 
 const verifyEmail = async (req, res, next) => {
   const { verificationToken } = req.params;
@@ -95,8 +111,8 @@ const verifyEmail = async (req, res, next) => {
     await user.save();
 
     return res.status(200).json({ message: "Verification successful" });
-  } catch (e) {
-    console.error("Email verification error:", e);
+  } catch (error) {
+    console.error("Email verification error:", error);
     return res
       .status(500)
       .json({ message: "An error occurred during email verification" });
@@ -123,21 +139,23 @@ const resendVerificationEmail = async (req, res, next) => {
         .json({ message: "Verification has already been passed" });
     }
 
-    const newVerificationToken = "generated_new_token";
+    const newVerificationToken = generateVerificationToken();
 
     user.verificationToken = newVerificationToken;
     await user.save();
 
-    sendVerificationEmail(user.email, newVerificationToken);
+    sendVerificationEmail(
+      user.email,
+      newVerificationToken,
+      process.env.APP_URL
+    );
 
     return res.status(200).json({ message: "Verification email sent" });
-  } catch (e) {
-    console.error("Error sending verification email:", e);
-    return res
-      .status(500)
-      .json({
-        message: "An error occurred while sending the verification email",
-      });
+  } catch (error) {
+    console.error("Error sending verification email:", error);
+    return res.status(500).json({
+      message: "An error occurred while sending the verification email",
+    });
   }
 };
 
@@ -145,17 +163,17 @@ const login = async (req, res, next) => {
   const { email, password } = req.body;
   try {
     const user = await service.findUserByEmail(email);
-    if (!user || !user.validPassword(password))
+    if (!user || !user.validPassword(password)) {
       return res.status(401).json({ message: "Email or password is wrong" });
-    const { id, subscription } = user;
-    const payload = {
-      id: id,
-      email: email,
-    };
+    }
 
-    const token = jwt.sign(payload, secret, { expiresIn: "3h" });
+    const { id, subscription } = user;
+
+   
+    const token = jwt.sign({ id, email }, secret, { expiresIn: "3h" });
 
     await service.addToken(id, token);
+
     res.status(200).json({
       token,
       user: {
@@ -163,8 +181,8 @@ const login = async (req, res, next) => {
         subscription,
       },
     });
-  } catch (e) {
-    next(e);
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -173,8 +191,8 @@ const logout = async (req, res, next) => {
   try {
     await service.logOut(id);
     res.status(204).json();
-  } catch (e) {
-    next(e);
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -189,8 +207,8 @@ const currentUser = async (req, res, next) => {
         subscription,
       },
     });
-  } catch (e) {
-    next(e);
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -208,8 +226,8 @@ const updateSubs = async (req, res, next) => {
         subscription,
       },
     });
-  } catch (e) {
-    next(e);
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -219,20 +237,18 @@ const avatarUpdate = async (req, res, next) => {
 
   Jimp.read(temporaryName)
     .then((avatar) => {
-      return avatar
-        .resize(250, 250) // resize
-        .write(avatarURL); // save
+      return avatar.resize(250, 250).write(avatarURL);
     })
-    .catch((err) => {
-      console.error(err);
+    .catch((error) => {
+      console.error(error);
     });
 
   try {
     await fs.rename(temporaryName, avatarURL);
     await service.updateAvatar(req.user.id, avatarURL);
-  } catch (e) {
+  } catch (error) {
     await fs.unlink(temporaryName);
-    next(e);
+    next(error);
   }
   res.status(200).json({ avatarURL });
 };

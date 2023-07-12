@@ -11,5 +11,7 @@ router.get("/logout", auth, ctrlUser.logout);
 router.get("/current", auth, ctrlUser.currentUser);
 router.patch("/", auth, validate.updateSubscription, ctrlUser.updateSubs);
 router.patch("/avatars", auth, upload.single("avatar"), ctrlUser.avatarUpdate);
+router.get("/verify/:verificationToken", ctrlUser.verifyEmail);
+
 
 module.exports = router;
