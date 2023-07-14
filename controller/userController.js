@@ -14,9 +14,9 @@ const signUp = async (req, res, next) => {
 
   try {
     const avatar = gravatar.url(req.body.email, {
-      s: "200", 
-      r: "pg", 
-      d: "mm", 
+      s: "200",
+      r: "pg",
+      d: "mm",
     });
     const newUser = new User(req.body);
     newUser.setPassword(password);
