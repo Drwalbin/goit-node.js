@@ -1,18 +1,30 @@
 const passport = require("passport");
+const { Strategy: JwtStrategy, ExtractJwt } = require("passport-jwt");
+const User = require("../service/schemas/user");
 
-const auth = (req, res, next) => {
-  passport.authenticate("jwt", { session: false }, (err, user) => {
-    if (!user || err) {
-      return res.status(401).json({
-        status: "error",
-        code: 401,
-        message: "Unauthorized",
-        data: "Unauthorized",
-      });
-    }
-    req.user = user;
-    next();
-  })(req, res, next);
+require("dotenv").config();
+const secret = process.env.JWT_SECRET;
+
+const jwtOptions = {
+  secretOrKey: secret,
+  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
 };
 
-module.exports = auth;
+passport.use(
+  new JwtStrategy(jwtOptions, async (payload, done) => {
+    try {
+      const user = await User.findById(payload.id);
+      if (user) {
+        return done(null, user);
+      }
+      return done(null, false);
+    } catch (error) {
+      return done(error, false);
+    }
+  })
+);
+
+module.exports = {
+  initialize: () => passport.initialize(),
+  authenticate: () => passport.authenticate("jwt", { session: false }),
+};
