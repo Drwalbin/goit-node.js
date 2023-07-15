@@ -4,16 +4,21 @@ const findUserByEmail = async (email) => {
   return User.findOne({ email });
 };
 
-const addToken = async (id, token) =>
-  await User.findByIdAndUpdate(id, { token });
+const addToken = async (id, token) => {
+  return User.findByIdAndUpdate(id, { token });
+};
 
-const logOut = async (id) => await User.findByIdAndUpdate(id, { token: null });
+const logOut = async (id) => {
+  return User.findByIdAndUpdate(id, { token: null });
+};
 
-const updateSubscription = async (id, body) =>
-  User.findByIdAndUpdate(id, { subscription: body }, { new: true });
+const updateSubscription = async (id, subscription) => {
+  return User.findByIdAndUpdate(id, { subscription }, { new: true });
+};
 
-const updateAvatar = async (id, avatarURL) =>
-  User.findByIdAndUpdate(id, { avatarURL }, { new: true });
+const updateAvatar = async (id, avatarURL) => {
+  return User.findByIdAndUpdate(id, { avatarURL }, { new: true });
+};
 
 module.exports = {
   findUserByEmail,
