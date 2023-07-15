@@ -31,7 +31,7 @@ const userSchema = new Schema(
       required: [true, "Verify token is required"],
     },
   },
-  { versionKey: false, timestamps: true }
+  { timestamps: true }
 );
 
 userSchema.methods.setPassword = function (password) {

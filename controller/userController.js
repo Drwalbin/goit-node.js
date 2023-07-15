@@ -10,13 +10,12 @@ const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const secret = process.env.JWT_SECRET;
+const emailFrom = process.env.MAIL_FROM;
 const emailHost = process.env.MAIL_HOST;
 const emailPort = process.env.MAIL_PORT;
 const emailUsername = process.env.MAIL_USERNAME;
 const emailPassword = process.env.MAIL_PASSWORD;
 const appUrl = process.env.APP_URL;
-
-const emailFrom = emailUsername; 
 
 const transporter = nodemailer.createTransport({
   host: emailHost,
@@ -60,25 +59,15 @@ const signUp = async (req, res, next) => {
       r: "pg",
       d: "mm",
     });
-
+    const verificationToken = jwt.sign({ email }, secret, { expiresIn: "1h" });
     const newUser = new User({
       email,
       password,
       avatarURL: avatar,
+      verificationToken, // Ustawienie verificationToken przy tworzeniu użytkownika
       verify: false,
     });
     newUser.setPassword(password);
-
-    const verificationTokenPayload = {
-      id: newUser._id,
-      email: email,
-      iat: Math.floor(Date.now() / 1000), 
-      exp: Math.floor(Date.now() / 1000) + 60 * 60, 
-    };
-
-    const verificationToken = jwt.sign(verificationTokenPayload, secret);
-
-    newUser.verificationToken = verificationToken;
     await newUser.save();
 
     await sendVerificationEmail(email, verificationToken);
@@ -87,11 +76,9 @@ const signUp = async (req, res, next) => {
     const payload = {
       id: id,
       email: email,
-      iat: Math.floor(Date.now() / 1000), 
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 3, 
     };
 
-    const token = jwt.sign(payload, secret);
+    const token = jwt.sign(payload, secret, { expiresIn: "3h" });
 
     await service.addToken(id, token);
 
