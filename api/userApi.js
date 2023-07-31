@@ -5,7 +5,7 @@ const ctrlUser = require("../controller/userController.js");
 const authMiddleware = require("../config/authMiddleware.js");
 const multer = require("multer");
 const path = require("path");
-const jimp = require("jimp");
+// const jimp = require("jimp");
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -28,12 +28,14 @@ router.patch(
   validate.updateSubscription,
   ctrlUser.updateSubs
 );
-
 router.patch(
   "/avatars",
   authMiddleware.authenticate(),
   upload.single("avatar"),
   ctrlUser.updateAvatar
 );
+
+router.get("/verify/:verificationToken", ctrlUser.verifyEmail);
+router.post("/verify/resend", ctrlUser.resendVerificationEmail);
 
 module.exports = router;
